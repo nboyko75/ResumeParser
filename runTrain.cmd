@@ -1,0 +1,1 @@
+call ".\bin\Debug\net5.0\ResumeParser.exe" -mode train -data "D:\Projects\ResumeParser\Model\data.txt"

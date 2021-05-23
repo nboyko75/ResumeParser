@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ResumeParser": {
+      "commandName": "Project",
+      "commandLineArgs": "-mode parse -data \"D:\\Projects\\ResumeParser\\Model\\data.tsv\" -pdf \"D:\\Projects\\ResumeParser\\Pdf\" -doc \"D:\\Projects\\ResumeParser\\Doc\" -json \"D:\\Projects\\ResumeParser\\Json\""
+    }
+  }
+}

@@ -1,0 +1,1 @@
+call ".\bin\Debug\net5.0\ResumeParser.exe" -mode parse -data "D:\Projects\ResumeParser\Model\data.tsv" -pdf "D:\Projects\ResumeParser\Pdf" -doc "D:\Projects\ResumeParser\Doc" -json "D:\Projects\ResumeParser\Json" >runParse.log

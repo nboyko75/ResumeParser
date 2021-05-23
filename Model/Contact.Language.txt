@@ -1,0 +1,11 @@
+language
+English
+Chinese
+Hindi
+Spanish
+French
+Arabic
+Russian
+Portuguese
+German
+Japanese

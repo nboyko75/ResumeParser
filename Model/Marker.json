@@ -1,0 +1,39 @@
+{
+  "Items": [
+    {
+      "Category": "Job",
+      "Attribute": null,
+      "Markers": [ "Professional experience", "Experience", "EXPERIENCE" ]
+    },
+    {
+      "Category": "Study",
+      "Attribute": null,
+      "Markers": [ "Education", "EDUCATION" ]
+    },
+    {
+      "Category": "Project",
+      "Attribute": null,
+      "Markers": [ "Projects", "PROJECTS" ]
+    },
+    {
+      "Category": "Skill",
+      "Attribute": null,
+      "Markers": [ "Skills", "SKILLS" ]
+    },
+    {
+      "Category": "Award",
+      "Attribute": null,
+      "Markers": [ "Awards", "AWARDS" ]
+    },
+    {
+      "Category": "Contact",
+      "Attribute": "Biography",
+      "Markers": [ "Objective", "OBJECTIVE" ]
+    },
+    {
+      "Category": "Contact",
+      "Attribute": "Language",
+      "Markers": [ "Languages", "LANGUAGES" ]
+    }
+  ]
+}
