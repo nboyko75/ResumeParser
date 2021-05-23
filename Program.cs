@@ -218,7 +218,7 @@ namespace ResumeParser
                                     bool hasRange = currentRange != null;
                                     bool hasPropRange = catPropRange != null;
                                     int catRangeBegin = hasRange ? catRange.IndexBegin : 0;
-                                    int catRangeEnd = hasRange ? catRange.IndexEnd : 0;
+                                    int catRangeEnd = hasRange ? catRange.IndexEnd : blocks.Count - 1;
                                     for (int i = catRangeBegin; i <= catRangeEnd; i++)
                                     {
                                         string block = blocks[i].Trim();
