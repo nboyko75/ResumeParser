@@ -6,7 +6,7 @@ namespace ResumeParser.Parser
 {
     public class BlockParser
     {
-        private string[] sentenceDelimetes = { ".", "\n", "\t", "   " };
+        private string[] sentenceDelimetes = { "\n", "\t", "   " };
 
         public List<string> Parse(string txt) 
         {

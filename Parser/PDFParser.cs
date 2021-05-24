@@ -36,7 +36,7 @@ namespace ResumeParser.Parser
                     // extract the text
                     string text = pdfToText.GetText();
                     List<string> txtList = text.Split(new[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries).ToList();
-                    IEnumerable<string> delDemoLinesList = txtList.Skip(7).Take(txtList.Count - 9);
+                    IEnumerable<string> delDemoLinesList = txtList.Skip(4).Take(txtList.Count - 5);
                     outFile.Write(string.Join("\n", delDemoLinesList));
                 }
                 return true;

@@ -8,17 +8,68 @@ using System.Text.RegularExpressions;
 
 namespace ResumeParser.Parser
 {
+    public class RegexPattern
+    {
+        public static string DatePattern = @"(\d+)[-.\/](\d+)[-.\/](\d+)";
+        public static string PhoneNumberPattern = @"(\+?(?<NatCode>1)\s*[-\/\.]?)?(\((?<AreaCode>\d{3})\)|(?<AreaCode>\d{3}))\s*[-\/\.]?\s*(?<Number1>\d{3})\s*[-\/\.]?\s*(?<Number2>\d{4})\s*(([xX]|[eE][xX][tT])\.?\s*(?<Ext>\d+))*";
+        public static string AddressPattern = @"\b(\d{1,6} )?(.{2,25}\b(avenue|ave|court|ct|street|st|drive|dr|lane|ln|road|rd|blvd|plaza|parkway|pkwy|way)[.,])?(.{0,25} +\b\d{5}\b)";
+        public static string EmailPattern = @"([\w\.\-]+)@([\w\-]+)((\.(\w){2,3})+)";
+        public static string ZipPattern = @"\b\d{5}(?:-\d{4})?\b";
+        public static string LinkedInPattern = @"https:\/\/[a-z]{2,3}\.linkedin\.com\/\S*\b";
+        public static string GithubPattern = @"https:\/\/github.com\/\S*\b";
+        public static Dictionary<string, string> prop2pattern = new()
+        {
+            { "PhoneNumber", PhoneNumberPattern },
+            { "Address", AddressPattern },
+            { "BirthDate", DatePattern },
+            { "Email", EmailPattern },
+            { "Zip", ZipPattern },
+            { "LinkedIn", LinkedInPattern },
+            { "Github", GithubPattern },
+            { "StartDate", DatePattern },
+            { "EndDate", DatePattern }
+        };
+        public static string GetDictPattern(string propName, string dictValue) 
+        {
+            string result;
+            if (propName == "Name")
+            {
+                result = $"\\b{dictValue.Trim()}\\b((\\s)+(\\w)+)?";
+            }
+            else if (propName == "Title") 
+            {
+                result = $"((\\s)+(\\w)+)*\\b{dictValue.Trim()}\\b((\\s)+(\\w)+)*";
+            }
+            else
+            {
+                result = $"\\b{dictValue.Trim()}\\b";
+            }
+            return result;
+        }
+    }
+
     public class Tools
     {
         public static void SetPropValue(Type objType, string propName, object obj, string newVal)
         {
             PropertyInfo attrProp = objType.GetProperty(propName);
             string oldVal = (string)attrProp.GetValue(obj);
+            bool toSetValue = true;
             if (oldVal != null)
             {
-                oldVal = oldVal + "\n";
+                if (JsonDataInfo.MultipleValueProps.Contains(propName))
+                {
+                    oldVal = oldVal + ", ";
+                }
+                else 
+                {
+                    toSetValue = false;
+                }
             }
-            attrProp.SetValue(obj, string.Concat(oldVal, newVal));
+            if (toSetValue)
+            {
+                attrProp.SetValue(obj, string.Concat(oldVal, newVal));
+            }
         }
 
         public static bool CheckDir(string dir, bool toCreate)
@@ -54,18 +105,6 @@ namespace ResumeParser.Parser
                 }
             }
             return result;
-        }
-
-        public static List<string> ParseDate(string inputStr)
-        {
-            string pattern = @"(\d+)[-.\/](\d+)[-.\/](\d+)";
-            return ParseByPattern(inputStr, pattern);
-        }
-
-        public static List<string> ParsePhoneNumber(string inputStr) 
-        {
-            string pattern = @"^(\+?(?<NatCode>1)\s*[-\/\.]?)?(\((?<AreaCode>\d{3})\)|(?<AreaCode>\d{3}))\s*[-\/\.]?\s*(?<Number1>\d{3})\s*[-\/\.]?\s*(?<Number2>\d{4})\s*(([xX]|[eE][xX][tT])\.?\s*(?<Ext>\d+))*$";
-            return ParseByPattern(inputStr, pattern);
         }
 
         public static List<string> ParseByPattern(string inputStr, string pattern) 
@@ -105,7 +144,7 @@ namespace ResumeParser.Parser
                     for (int i = 0; i < adeddProps.Length; i++)
                     {
                         PropertyInfo propType = adeddProps[i];
-                        if (propType.Name != "Description")
+                        if (!JsonDataInfo.MultipleValueProps.Contains(propType.Name))
                         {
                             string oldValue = (string)propType.GetValue(lastItem);
                             if (oldValue != null)
@@ -189,6 +228,24 @@ namespace ResumeParser.Parser
                     }
             }
             return result;
+        }
+
+        public static int MinIndexTitle(Dictionary<string, CategoryRange> values)
+        {
+            return values.Values.ToList().Select(c => c.IndexTitle).Min();
+        }
+
+        public static void AddBlockRowMap(Dictionary<int, List<string>> dict, int idx, string propArea) 
+        {
+            List<string> mapStr;
+            if (dict.TryGetValue(idx, out mapStr))
+            {
+                mapStr.Add(propArea);
+            }
+            else 
+            {
+                dict[idx] = new List<string> { propArea };
+            }
         }
     }
 }

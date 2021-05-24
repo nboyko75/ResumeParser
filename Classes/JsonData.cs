@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace ResumeParser.Classes
 {
@@ -7,6 +6,9 @@ namespace ResumeParser.Classes
     {
         public static string[] SimpleClasses = { "Contact" };
         public static string[] ListClasses = { "Study", "Job", "Skill", "Project", "Award" };
+        public static string[] MultipleValueProps = { "Description", "Biography", "Address", "Language", "Institution_Location",
+            "Location", "Tools", "AwardedBy" };
+        public static string[] DateProps = { "BirthDate", "StartDate", "EndDate" };
     }
 
     public class JsonData
@@ -43,7 +45,6 @@ namespace ResumeParser.Classes
         public string Language { get; set; }
         public string Email { get; set; }
         public string Name { get; set; }
-        public string Description { get; set; }
     }
 
     public class Study
@@ -54,7 +55,6 @@ namespace ResumeParser.Classes
         public string Gpa { get; set; }
         public string StartDate { get; set; }
         public string EndDate { get; set; }
-        public string Description { get; set; }
     }
 
     public class Job

@@ -2,6 +2,7 @@
 {
     public class CategoryRange
     {
+        public int IndexTitle { get; set; }
         public int IndexBegin { get; set; }
         public int IndexEnd { get; set; }
 
