@@ -130,14 +130,17 @@ namespace ResumeParser
                                     for (int j = 0; j < mi.Markers.Length; j++) 
                                     {
                                         string markerStr = mi.Markers[j];
-                                        if (block.Contains(markerStr)) 
+                                        int markerIdx = block.IndexOf(markerStr);
+                                        if (markerIdx >= 0)
                                         {
+                                            string restRowStr = block.Substring(markerIdx + markerStr.Length);
+                                            blocks[i] = restRowStr;
                                             string mCat = mi.Category;
                                             if (!string.IsNullOrEmpty(mi.Attribute)) 
                                             {
                                                 mCat = string.Concat(mCat, ".", mi.Attribute);
                                             }
-                                            ranges[mCat] = new CategoryRange { IndexTitle = i, IndexBegin = i + 1 };
+                                            ranges[mCat] = new CategoryRange { IndexBegin = i };
                                             markerIndexes.Add(i);
                                             break;
                                         }
@@ -156,18 +159,18 @@ namespace ResumeParser
                                         CategoryRange catRange2 = pair2.Value;
                                         if (catRange2.IndexBegin > fcatRange.IndexBegin && (fcatRange.IndexEnd < 0 || fcatRange.IndexEnd >= catRange2.IndexBegin)) 
                                         {
-                                            fcatRange.IndexEnd = catRange2.IndexTitle - 1;
+                                            fcatRange.IndexEnd = catRange2.IndexBegin - 1;
                                         }
                                     }
                                 }
                             }
-                            /* set first category - contact */
+                            /* set first category - contact and education */
                             if (!ranges.ContainsKey("Contact"))
                             {
-                                int minTitleIdx = Tools.MinIndexTitle(ranges);
+                                int minTitleIdx = Tools.MinIndexBegin(ranges);
                                 if (minTitleIdx > 0) 
                                 {
-                                    CategoryRange newRange = new CategoryRange { IndexTitle = 0, IndexBegin = 0, IndexEnd = minTitleIdx - 1 };
+                                    CategoryRange newRange = new CategoryRange { IndexBegin = 0, IndexEnd = minTitleIdx - 1 };
                                     ranges["Contact"] = newRange;
                                 }
                             }
@@ -246,14 +249,14 @@ namespace ResumeParser
                                     for (int i = catRangeBegin; i <= catRangeEnd; i++)
                                     {
                                         string block = blocks[i].Trim();
-                                        /* check for empty range indexes */
+                                        /* check for interception with another ranges */
                                         if (!hasRange) 
                                         {
                                             bool hasInterception = false;
                                             foreach (KeyValuePair<string, CategoryRange> pair in ranges) 
                                             {
                                                 CategoryRange ckcatRange = pair.Value;
-                                                if (ckcatRange.IndexTitle <= i && ckcatRange.IndexEnd >= i) 
+                                                if (ckcatRange.IndexBegin <= i && ckcatRange.IndexEnd >= i) 
                                                 {
                                                     hasInterception = true;
                                                     break;
@@ -266,7 +269,7 @@ namespace ResumeParser
                                         }
                                         else
                                         {
-                                            if (!(catRange.IndexTitle <= i && i <= catRange.IndexEnd))
+                                            if (!(catRange.IndexBegin <= i && i <= catRange.IndexEnd))
                                             {
                                                 continue;
                                             }
@@ -304,7 +307,7 @@ namespace ResumeParser
                                                 }
                                             }
                                         }
-                                        else if (cat == "Study")
+                                        else if (cat == "Education")
                                         {
                                             bool isStartDate = catProp.Name == "StartDate";
                                             bool isEndDate = catProp.Name == "EndDate";
@@ -313,27 +316,27 @@ namespace ResumeParser
                                                 List<string> res = Tools.ParseByPattern(block, RegexPattern.prop2pattern[catProp.Name]);
                                                 if (res != null)
                                                 {
-                                                    PropertyInfo[] adeddProps = { typeof(Study).GetProperty("StartDate"), typeof(Study).GetProperty("EndDate") };
-                                                    Study lastItem = Tools.GetItem<Study>(jsonData.studies, adeddProps, -1, out var isNew);
+                                                    PropertyInfo[] adeddProps = { typeof(Education).GetProperty("StartDate"), typeof(Education).GetProperty("EndDate") };
+                                                    Education lastItem = Tools.GetItem<Education>(jsonData.education, adeddProps, -1, out var isNew);
                                                     if (isStartDate || isEndDate)
                                                     {
                                                         if (isStartDate)
                                                         {
                                                             string dateBeg = res[0];
-                                                            Tools.SetPropValue(typeof(Study), catProp.Name, lastItem, dateBeg);
+                                                            Tools.SetPropValue(typeof(Education), catProp.Name, lastItem, dateBeg);
                                                             Tools.AddBlockRowMap(blockRowMap, i, propArea);
                                                         }
                                                         if (isEndDate && res.Count > 1)
                                                         {
                                                             string dateEnd = res[1];
-                                                            Tools.SetPropValue(typeof(Study), catProp.Name, lastItem, dateEnd);
+                                                            Tools.SetPropValue(typeof(Education), catProp.Name, lastItem, dateEnd);
                                                             Tools.AddBlockRowMap(blockRowMap, i, propArea);
                                                         }
                                                     }
                                                     else 
                                                     {
                                                         string resStr = (JsonDataInfo.DateProps.Contains(catProp.Name)) ? res[0] : string.Join(", ", res);
-                                                        Tools.SetPropValue(typeof(Study), catProp.Name, lastItem, resStr);
+                                                        Tools.SetPropValue(typeof(Education), catProp.Name, lastItem, resStr);
                                                         Tools.AddBlockRowMap(blockRowMap, i, propArea);
                                                     }
                                                     isFound = true;
@@ -370,9 +373,9 @@ namespace ResumeParser
                                         }
 
                                         /* Dict search */
-                                        if (propDict.ContainsKey(propArea)) 
+                                        if (propDict.ContainsKey(propArea))
                                         {
-                                            string? dictValue = null;
+                                            string dictValue = null;
                                             foreach (string val in propDict[propArea]) 
                                             {
                                                 string pattern = RegexPattern.GetDictPattern(catProp.Name, val);
@@ -381,7 +384,7 @@ namespace ResumeParser
                                                     Match dictMatch = Regex.Match(block, pattern, RegexOptions.IgnoreCase);
                                                     if (dictMatch.Success)
                                                     {
-                                                        dictValue = dictMatch.Value;
+                                                        dictValue = dictMatch.Value.Trim();
                                                         break;
                                                     }
                                                 }

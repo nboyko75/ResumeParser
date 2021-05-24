@@ -5,19 +5,19 @@ namespace ResumeParser.Classes
     public class JsonDataInfo
     {
         public static string[] SimpleClasses = { "Contact" };
-        public static string[] ListClasses = { "Study", "Job", "Skill", "Project", "Award" };
+        public static string[] ListClasses = { "Education", "Job", "Skill", "Project", "Award" };
         public static string[] MultipleValueProps = { "Description", "Biography", "Address", "Language", "Location", "Tools", "AwardedBy" };
         public static string[] DateProps = { "BirthDate", "StartDate", "EndDate" };
         public static Dictionary<string, string> DictMap = new()
         {
-            { "Study.Institution_Location", "Contact.City" }
+            { "Education.Institution_Location", "Contact.City" }
         };
     }
 
     public class JsonData
     {
         public Contact contact { get; set; }
-        public List<Study> studies { get; set; }
+        public List<Education> education { get; set; }
         public List<Job> jobs { get; set; }
         public List<Skill> skills { get; set; }
         public List<Project> projects { get; set; }
@@ -26,7 +26,7 @@ namespace ResumeParser.Classes
         public JsonData() 
         {
             contact = new Contact();
-            studies = new List<Study>();
+            education = new List<Education>();
             jobs = new List<Job>();
             skills = new List<Skill>();
             projects = new List<Project>();
@@ -50,7 +50,7 @@ namespace ResumeParser.Classes
         public string Name { get; set; }
     }
 
-    public class Study
+    public class Education
     {
         public string Institution { get; set; }
         public string Institution_Location { get; set; }

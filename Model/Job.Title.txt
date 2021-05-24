@@ -4253,7 +4253,6 @@ C Developer Worcester
 C Developer WPF Silverlight
 C Developer\/ C\+\+ Developer
 C Developers
-C Developers x
 C Driver
 C Drivers
 C Graduate pd
@@ -10508,7 +10507,7 @@ Developer NET Portadown
 Developer New Graduate
 Developer PHP
 DeveloperinTest
-Developers x
+Developer Intern
 DEVELOPING WORLD CONSULTING
 Development Accountant
 Development Administrator

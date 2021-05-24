@@ -33,6 +33,7 @@ namespace ResumeParser.Parser
             { "EndDate", DatePattern },
             { "Gpa", GpaPattern }
         };
+        public static string[] InstitutionWithTail = { "university", "institute" };
 
         public static string GetDictPattern(string propName, string dictValue) 
         {
@@ -44,6 +45,17 @@ namespace ResumeParser.Parser
             else if (propName == "Title") 
             {
                 result = $"((\\s)+(\\w)+)*\\b{dictValue.Trim()}\\b((\\s)+(\\w)+)*";
+            }
+            else if (propName == "Institution")
+            {
+                if (InstitutionWithTail.Contains(dictValue.ToLower()))
+                {
+                    result = $"{dictValue.Trim()}\\b[\\s\\w]*";
+                }
+                else 
+                {
+                    result = $"[\\s\\w]*\\b{dictValue.Trim()}\\b";
+                }
             }
             else
             {
@@ -219,10 +231,10 @@ namespace ResumeParser.Parser
                         result = AddNewValueByType<Contact>(null, adeddProp, cat, addedPropName, jsonData, block, index);
                         break;
                     }
-                case "Study":
+                case "Education":
                     {
-                        PropertyInfo adeddProp = typeof(Study).GetProperty(addedPropName);
-                        result = AddNewValueByType<Study>(jsonData.studies, adeddProp, cat, addedPropName, jsonData, block, index);
+                        PropertyInfo adeddProp = typeof(Education).GetProperty(addedPropName);
+                        result = AddNewValueByType<Education>(jsonData.education, adeddProp, cat, addedPropName, jsonData, block, index);
                         break;
                     }
                 case "Job":
@@ -253,9 +265,9 @@ namespace ResumeParser.Parser
             return result;
         }
 
-        public static int MinIndexTitle(Dictionary<string, CategoryRange> values)
+        public static int MinIndexBegin(Dictionary<string, CategoryRange> values)
         {
-            return values.Values.ToList().Select(c => c.IndexTitle).Min();
+            return values.Values.ToList().Select(c => c.IndexBegin).Min();
         }
 
         public static void AddBlockRowMap(Dictionary<int, List<string>> dict, int idx, string propArea) 
