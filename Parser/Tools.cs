@@ -10,6 +10,8 @@ namespace ResumeParser.Parser
 {
     public class RegexPattern
     {
+        public static string ResultGroup = "result";
+        public static string ResultGroupPattern = @"?<result>";
         public static string DatePattern = @"(\d+)[-.\/](\d+)[-.\/](\d+)";
         public static string PhoneNumberPattern = @"(\+?(?<NatCode>1)\s*[-\/\.]?)?(\((?<AreaCode>\d{3})\)|(?<AreaCode>\d{3}))\s*[-\/\.]?\s*(?<Number1>\d{3})\s*[-\/\.]?\s*(?<Number2>\d{4})\s*(([xX]|[eE][xX][tT])\.?\s*(?<Ext>\d+))*";
         public static string AddressPattern = @"\b(\d{1,6} )?(.{2,25}\b(avenue|ave|court|ct|street|st|drive|dr|lane|ln|road|rd|blvd|plaza|parkway|pkwy|way)[.,])?(.{0,25} +\b\d{5}\b)";
@@ -17,6 +19,7 @@ namespace ResumeParser.Parser
         public static string ZipPattern = @"\b\d{5}(?:-\d{4})?\b";
         public static string LinkedInPattern = @"https:\/\/[a-z]{2,3}\.linkedin\.com\/\S*\b";
         public static string GithubPattern = @"https:\/\/github.com\/\S*\b";
+        public static string GpaPattern = @"\bGPA\b\W+(?<result>[0-4]\.\d{1,2})";
         public static Dictionary<string, string> prop2pattern = new()
         {
             { "PhoneNumber", PhoneNumberPattern },
@@ -27,8 +30,10 @@ namespace ResumeParser.Parser
             { "LinkedIn", LinkedInPattern },
             { "Github", GithubPattern },
             { "StartDate", DatePattern },
-            { "EndDate", DatePattern }
+            { "EndDate", DatePattern },
+            { "Gpa", GpaPattern }
         };
+
         public static string GetDictPattern(string propName, string dictValue) 
         {
             string result;
@@ -110,13 +115,31 @@ namespace ResumeParser.Parser
         public static List<string> ParseByPattern(string inputStr, string pattern) 
         {
             List<string> result = null;
-            MatchCollection mc = Regex.Matches(inputStr, pattern);
-            if (mc.Count > 0)
+            if (pattern.Contains(RegexPattern.ResultGroupPattern))
             {
-                result = new List<string>();
-                foreach (Match match in mc)
+                Regex regex = new Regex(pattern, RegexOptions.IgnoreCase);
+                Match match = regex.Match(inputStr);
+                if (match.Success)
                 {
-                    result.Add(match.Value);
+                    GroupCollection groups = match.Groups;
+                    string[] groupNames = regex.GetGroupNames();
+                    if (groupNames.Contains(RegexPattern.ResultGroup))
+                    {
+                        result = new List<string>();
+                        result.Add(groups[RegexPattern.ResultGroup].Value);
+                    }
+                }
+            }
+            else 
+            {
+                MatchCollection mc = Regex.Matches(inputStr, pattern);
+                if (mc.Count > 0)
+                {
+                    result = new List<string>();
+                    foreach (Match match in mc)
+                    {
+                        result.Add(match.Value);
+                    }
                 }
             }
             return result;

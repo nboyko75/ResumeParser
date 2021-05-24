@@ -6,9 +6,12 @@ namespace ResumeParser.Classes
     {
         public static string[] SimpleClasses = { "Contact" };
         public static string[] ListClasses = { "Study", "Job", "Skill", "Project", "Award" };
-        public static string[] MultipleValueProps = { "Description", "Biography", "Address", "Language", "Institution_Location",
-            "Location", "Tools", "AwardedBy" };
+        public static string[] MultipleValueProps = { "Description", "Biography", "Address", "Language", "Location", "Tools", "AwardedBy" };
         public static string[] DateProps = { "BirthDate", "StartDate", "EndDate" };
+        public static Dictionary<string, string> DictMap = new()
+        {
+            { "Study.Institution_Location", "Contact.City" }
+        };
     }
 
     public class JsonData

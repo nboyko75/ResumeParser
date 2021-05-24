@@ -53,7 +53,7 @@ namespace ResumeParser
                     string modelDir = Path.GetDirectoryName(config.TrainDataPath);
 
                     /* clear json and txt folder */
-                    /* foreach (FileInfo file in txtDir.GetFiles())
+                    foreach (FileInfo file in txtDir.GetFiles())
                     {
                         file.Delete();
                     }
@@ -79,7 +79,7 @@ namespace ResumeParser
                         {
                             docParser.ExtractText(file.FullName, $"{config.TxtPath}\\{file.Name}.txt");
                         }
-                    } */
+                    }
 
                     /* Read info jsons */
                     string searchOrderRaw = File.ReadAllText($"{modelDir}\\SearchOrder.json");
@@ -87,18 +87,37 @@ namespace ResumeParser
                     string markerRaw = File.ReadAllText($"{modelDir}\\Marker.json");
                     Marker marker = JsonConvert.DeserializeObject<Marker>(markerRaw);
 
+                    Dictionary<string, string[]> propDict = new Dictionary<string, string[]>();
+                    /* Read dictionaries */
+                    foreach (string cat in catOrder.OrderArray)
+                    {
+                        Type catType = Type.GetType(string.Concat("ResumeParser.Classes", ".", cat));
+                        foreach (PropertyInfo prop in catType.GetProperties())
+                        {
+                            string propArea = $"{cat}.{prop.Name}";
+                            string dictFilePath = $"{modelDir}\\{propArea}.txt";
+                            if (File.Exists(dictFilePath))
+                            {
+                                propDict[propArea] = File.ReadAllLines(dictFilePath);
+                            }
+                        }
+                        /* if dictionary uses dict of another property */
+                        foreach (KeyValuePair<string, string> pair in JsonDataInfo.DictMap) 
+                        {
+                            propDict[pair.Key] = propDict[pair.Value];
+                        }
+                    }
+
                     BlockParser blockParser = new BlockParser();
                     engine.PrepareToPredict(true);
                     foreach (FileInfo file in txtDir.GetFiles("*.txt", SearchOption.TopDirectoryOnly))
                     {
                         JsonData jsonData = new JsonData();
                         Type jsonDataType = typeof(JsonData);
-                        Dictionary<string, string[]> propDict = new Dictionary<string, string[]>();
                         Dictionary<string, CategoryRange> ranges = new Dictionary<string, CategoryRange>();
                         Dictionary<int, List<string>> blockRowMap = new Dictionary<int, List<string>>();
                         using (StreamReader sr = file.OpenText())
                         {
-                            Console.WriteLine("------------------------------------------------------------------------------------");
                             Console.WriteLine($"Parsing file '{file.Name}', start time: {DateTime.Now.ToString()} ");
                             List<string> blocks = blockParser.Parse(sr.ReadToEnd());
                             /* Fill markers */
@@ -204,16 +223,6 @@ namespace ResumeParser
                                 {
                                     catRange = null;
                                 };
-                                /* Read dictionaries */
-                                foreach (PropertyInfo prop in catType.GetProperties())
-                                {
-                                    string attrArea = $"{cat}.{prop.Name}";
-                                    string dictFilePath = $"{modelDir}\\{attrArea}.txt";
-                                    if (File.Exists(dictFilePath)) 
-                                    {
-                                        propDict[attrArea] = File.ReadAllLines(dictFilePath);
-                                    }
-                                }
 
                                 /* fields cycle */
                                 PropertyInfo[] catProps = catType.GetProperties();
@@ -299,23 +308,32 @@ namespace ResumeParser
                                         {
                                             bool isStartDate = catProp.Name == "StartDate";
                                             bool isEndDate = catProp.Name == "EndDate";
-                                            if (isStartDate || isEndDate)
+                                            if (RegexPattern.prop2pattern.ContainsKey(catProp.Name))
                                             {
-                                                List<string> dates = Tools.ParseByPattern(block, RegexPattern.DatePattern);
-                                                if (dates != null)
+                                                List<string> res = Tools.ParseByPattern(block, RegexPattern.prop2pattern[catProp.Name]);
+                                                if (res != null)
                                                 {
                                                     PropertyInfo[] adeddProps = { typeof(Study).GetProperty("StartDate"), typeof(Study).GetProperty("EndDate") };
                                                     Study lastItem = Tools.GetItem<Study>(jsonData.studies, adeddProps, -1, out var isNew);
-                                                    if (isStartDate)
+                                                    if (isStartDate || isEndDate)
                                                     {
-                                                        string dateBeg = dates[0];
-                                                        Tools.SetPropValue(typeof(Study), "StartDate", lastItem, dateBeg);
-                                                        Tools.AddBlockRowMap(blockRowMap, i, propArea);
+                                                        if (isStartDate)
+                                                        {
+                                                            string dateBeg = res[0];
+                                                            Tools.SetPropValue(typeof(Study), catProp.Name, lastItem, dateBeg);
+                                                            Tools.AddBlockRowMap(blockRowMap, i, propArea);
+                                                        }
+                                                        if (isEndDate && res.Count > 1)
+                                                        {
+                                                            string dateEnd = res[1];
+                                                            Tools.SetPropValue(typeof(Study), catProp.Name, lastItem, dateEnd);
+                                                            Tools.AddBlockRowMap(blockRowMap, i, propArea);
+                                                        }
                                                     }
-                                                    if (isEndDate && dates.Count > 1)
+                                                    else 
                                                     {
-                                                        string dateEnd = dates[1];
-                                                        Tools.SetPropValue(typeof(Study), "EndDate", lastItem, dateEnd);
+                                                        string resStr = (JsonDataInfo.DateProps.Contains(catProp.Name)) ? res[0] : string.Join(", ", res);
+                                                        Tools.SetPropValue(typeof(Study), catProp.Name, lastItem, resStr);
                                                         Tools.AddBlockRowMap(blockRowMap, i, propArea);
                                                     }
                                                     isFound = true;
@@ -422,7 +440,6 @@ namespace ResumeParser
                             string json = JsonConvert.SerializeObject(jsonData, Formatting.Indented);
                             File.WriteAllText($"{config.JsonPath}\\{Path.GetFileNameWithoutExtension(file.Name)}.json", json);
 
-                            Console.WriteLine("------------------------------------------------------------------------------------");
                             Console.WriteLine($"File '{file.Name}' has parsed, end time: {DateTime.Now.ToString()} ");
                         }
                     }
