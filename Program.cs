@@ -36,7 +36,7 @@ namespace ResumeParser
                     return;
                 }
 
-                MLEngine engine = new MLEngine(config.TrainDataPath, true);
+                MLEngine engine = new(config.TrainDataPath, true);
                 if (config.Mode == ParseMode.TRAIN)
                 {
                     engine.PrepareToTrain();
@@ -46,10 +46,10 @@ namespace ResumeParser
                 {
                     Tools.CheckDir(config.JsonPath, true);
 
-                    DirectoryInfo jsonDir = new DirectoryInfo(config.JsonPath);
+                    DirectoryInfo jsonDir = new(config.JsonPath);
                     config.TxtPath = config.JsonPath + "\\Txt";
                     Tools.CheckDir(config.TxtPath, true);
-                    DirectoryInfo txtDir = new DirectoryInfo(config.TxtPath);
+                    DirectoryInfo txtDir = new(config.TxtPath);
                     string modelDir = Path.GetDirectoryName(config.TrainDataPath);
 
                     /* clear json and txt folder */
@@ -87,7 +87,7 @@ namespace ResumeParser
                     string markerRaw = File.ReadAllText($"{modelDir}\\Marker.json");
                     Marker marker = JsonConvert.DeserializeObject<Marker>(markerRaw);
 
-                    Dictionary<string, string[]> propDict = new Dictionary<string, string[]>();
+                    Dictionary<string, string[]> propDict = new();
                     /* Read dictionaries */
                     foreach (string cat in catOrder.OrderArray)
                     {
@@ -108,20 +108,20 @@ namespace ResumeParser
                         }
                     }
 
-                    BlockParser blockParser = new BlockParser();
+                    BlockParser blockParser = new();
                     engine.PrepareToPredict(true);
                     foreach (FileInfo file in txtDir.GetFiles("*.txt", SearchOption.TopDirectoryOnly))
                     {
-                        JsonData jsonData = new JsonData();
+                        JsonData jsonData = new();
                         Type jsonDataType = typeof(JsonData);
-                        Dictionary<string, CategoryRange> ranges = new Dictionary<string, CategoryRange>();
-                        Dictionary<int, List<string>> blockRowMap = new Dictionary<int, List<string>>();
+                        Dictionary<string, CategoryRange> ranges = new();
+                        Dictionary<int, List<string>> blockRowMap = new();
                         using (StreamReader sr = file.OpenText())
                         {
                             Console.WriteLine($"Parsing file '{file.Name}', start time: {DateTime.Now.ToString()} ");
                             List<string> blocks = blockParser.Parse(sr.ReadToEnd());
                             /* Fill markers */
-                            List<int> markerIndexes = new List<int>();
+                            List<int> markerIndexes = new();
                             foreach (MarkerInfo mi in marker.Items) 
                             {
                                 for (int i = 0; i < blocks.Count; i++) 
@@ -170,7 +170,7 @@ namespace ResumeParser
                                 int minTitleIdx = Tools.MinIndexBegin(ranges);
                                 if (minTitleIdx > 0) 
                                 {
-                                    CategoryRange newRange = new CategoryRange { IndexBegin = 0, IndexEnd = minTitleIdx - 1 };
+                                    CategoryRange newRange = new() { IndexBegin = 0, IndexEnd = minTitleIdx - 1 };
                                     ranges["Contact"] = newRange;
                                 }
                             }
@@ -179,7 +179,7 @@ namespace ResumeParser
                             {
                                 if (!ranges.ContainsKey(cat))
                                 {
-                                    CategoryRange newRange = new CategoryRange();
+                                    CategoryRange newRange = new();
                                     bool propRangeExists = false;
                                     foreach (KeyValuePair<string, CategoryRange> pair in ranges)
                                     {
@@ -218,37 +218,41 @@ namespace ResumeParser
                             }
 
                             /* Category cycle */
-                            CategoryRange catRange;
+                            Dictionary<string, List<string>> propRangeDict = new();
                             foreach (string cat in catOrder.OrderArray) 
                             {
                                 Type catType = Type.GetType(string.Concat("ResumeParser.Classes", ".", cat));
-                                if (!ranges.TryGetValue(cat, out catRange)) 
+                                if (!ranges.TryGetValue((string)cat, out CategoryRange catRange)) 
                                 {
                                     catRange = null;
                                 };
 
-                                /* fields cycle */
-                                PropertyInfo[] catProps = catType.GetProperties();
-                                for (int j = 0; j < catProps.Length; j++)
+                                /* Blocks cycle */
+                                bool hasRange = catRange != null;
+                                int catRangeBegin = hasRange ? catRange.IndexBegin : 0;
+                                int catRangeEnd = hasRange ? catRange.IndexEnd : blocks.Count - 1;
+                                for (int i = catRangeBegin; i <= catRangeEnd; i++)
                                 {
-                                    PropertyInfo catProp = catProps[j];
-                                    string propArea = $"{cat}.{catProp.Name}";
-                                    CategoryRange catPropRange = null;
-                                    if (ranges.ContainsKey(propArea))
+                                    string block = blocks[i].Trim();
+                                    if (string.IsNullOrEmpty(block)) 
                                     {
-                                        catPropRange = ranges[propArea];
+                                        continue;
                                     }
-                                    List<string> rangeValue = new List<string>();
-
-                                    /* Blocks cycle */
-                                    CategoryRange currentRange = catPropRange ?? (catRange ?? null);
-                                    bool hasRange = currentRange != null;
-                                    bool hasPropRange = catPropRange != null;
-                                    int catRangeBegin = hasRange ? catRange.IndexBegin : 0;
-                                    int catRangeEnd = hasRange ? catRange.IndexEnd : blocks.Count - 1;
-                                    for (int i = catRangeBegin; i <= catRangeEnd; i++)
+                                    /* props cycle */
+                                    propRangeDict.Clear();
+                                    PropertyInfo[] catProps = catType.GetProperties();
+                                    for (int j = 0; j < catProps.Length; j++)
                                     {
-                                        string block = blocks[i].Trim();
+                                        PropertyInfo catProp = catProps[j];
+                                        string propArea = $"{cat}.{catProp.Name}";
+                                        CategoryRange catPropRange = null;
+                                        if (ranges.ContainsKey(propArea))
+                                        {
+                                            catPropRange = ranges[propArea];
+                                        }
+                                        bool hasPropRange = catPropRange != null;
+                                        List<string> rangeValue = new();
+
                                         /* check for interception with another ranges */
                                         if (!hasRange) 
                                         {
@@ -274,18 +278,22 @@ namespace ResumeParser
                                                 continue;
                                             }
                                         }
-                                        if ((cat == "Job" && catProp.Name == "Title" && block.Length > 70) || (cat == "Contact" && catProp.Name == "Name" &&
-                                            (string.IsNullOrEmpty(jsonData.contact.Name) ? 0 : jsonData.contact.Name.Length) + block.Length > 70))
-                                        {
-                                            continue;
-                                        }
 
                                         if (hasPropRange)
                                         {
                                             /* get all blocks from attribute range */
                                             if (catPropRange.IndexBegin <= i && i <= catPropRange.IndexEnd)
                                             {
-                                                rangeValue.Add(block);
+                                                if (propRangeDict.TryGetValue(propArea, out List<string> propRangeList))
+                                                {
+                                                    propRangeList.Add(block);
+                                                }
+                                                else
+                                                {
+                                                    propRangeList = new();
+                                                    propRangeList.Add(block);
+                                                    propRangeDict[propArea] = propRangeList;
+                                                }
                                             }
                                             continue;
                                         }
@@ -300,10 +308,12 @@ namespace ResumeParser
                                                 if (res != null)
                                                 {
                                                     string resStr = (JsonDataInfo.DateProps.Contains(catProp.Name)) ? res[0] : string.Join(", ", res);
-                                                    Tools.SetPropValue(typeof(Contact), catProp.Name, jsonData.contact, resStr);
-                                                    Tools.AddBlockRowMap(blockRowMap, i, propArea);
-                                                    isFound = true;
-                                                    break;
+                                                    if (Tools.SetPropValue(typeof(Contact), catProp.Name, jsonData.contact, resStr, blockRowMap, i, catRangeBegin, catRangeEnd))
+                                                    {
+                                                        Tools.AddBlockRowMap(blockRowMap, i, propArea);
+                                                        isFound = true;
+                                                    }
+                                                    continue;
                                                 }
                                             }
                                         }
@@ -313,6 +323,7 @@ namespace ResumeParser
                                             bool isEndDate = catProp.Name == "EndDate";
                                             if (RegexPattern.prop2pattern.ContainsKey(catProp.Name))
                                             {
+                                                bool valueIsSet = false;
                                                 List<string> res = Tools.ParseByPattern(block, RegexPattern.prop2pattern[catProp.Name]);
                                                 if (res != null)
                                                 {
@@ -323,24 +334,25 @@ namespace ResumeParser
                                                         if (isStartDate)
                                                         {
                                                             string dateBeg = res[0];
-                                                            Tools.SetPropValue(typeof(Education), catProp.Name, lastItem, dateBeg);
-                                                            Tools.AddBlockRowMap(blockRowMap, i, propArea);
+                                                            valueIsSet = Tools.SetPropValue(typeof(Education), catProp.Name, lastItem, dateBeg, blockRowMap, i, catRangeBegin, catRangeEnd);
                                                         }
                                                         if (isEndDate && res.Count > 1)
                                                         {
                                                             string dateEnd = res[1];
-                                                            Tools.SetPropValue(typeof(Education), catProp.Name, lastItem, dateEnd);
-                                                            Tools.AddBlockRowMap(blockRowMap, i, propArea);
+                                                            valueIsSet = Tools.SetPropValue(typeof(Education), catProp.Name, lastItem, dateEnd, blockRowMap, i, catRangeBegin, catRangeEnd);
                                                         }
                                                     }
                                                     else 
                                                     {
                                                         string resStr = (JsonDataInfo.DateProps.Contains(catProp.Name)) ? res[0] : string.Join(", ", res);
-                                                        Tools.SetPropValue(typeof(Education), catProp.Name, lastItem, resStr);
-                                                        Tools.AddBlockRowMap(blockRowMap, i, propArea);
+                                                        valueIsSet = Tools.SetPropValue(typeof(Education), catProp.Name, lastItem, resStr, blockRowMap, i, catRangeBegin, catRangeEnd);
                                                     }
-                                                    isFound = true;
-                                                    break;
+                                                    if (valueIsSet)
+                                                    {
+                                                        Tools.AddBlockRowMap(blockRowMap, i, propArea);
+                                                        isFound = true;
+                                                    }
+                                                    continue;
                                                 }
                                             }
                                         }
@@ -353,21 +365,26 @@ namespace ResumeParser
                                                 List<string> dates = Tools.ParseByPattern(block, RegexPattern.DatePattern);
                                                 if (dates != null)
                                                 {
-                                                    PropertyInfo[] adeddProps = { typeof(Job).GetProperty("StartDate"), typeof(Job).GetProperty("EndDate") };
+                                                    string dateStr = isStartDate ? "StartDate" : "EndDate";
+                                                    PropertyInfo[] adeddProps = { typeof(Job).GetProperty(dateStr) };
                                                     Job lastItem = Tools.GetItem<Job>(jsonData.jobs, adeddProps, -1, out var isNew);
+                                                    bool valueIsSet = false;
                                                     if (isStartDate)
                                                     {
                                                         string dateBeg = dates[0];
-                                                        Tools.SetPropValue(typeof(Job), "StartDate", lastItem, dateBeg);
+                                                        valueIsSet = Tools.SetPropValue(typeof(Job), "StartDate", lastItem, dateBeg, blockRowMap, i, catRangeBegin, catRangeEnd);
                                                     }
                                                     if (isEndDate && dates.Count > 1)
                                                     {
                                                         string dateEnd = dates[1];
-                                                        Tools.SetPropValue(typeof(Job), "EndDate", lastItem, dateEnd);
+                                                        valueIsSet = Tools.SetPropValue(typeof(Job), "EndDate", lastItem, dateEnd, blockRowMap, i, catRangeBegin, catRangeEnd);
                                                     }
-                                                    Tools.AddBlockRowMap(blockRowMap, i, propArea);
-                                                    isFound = true;
-                                                    break;
+                                                    if (valueIsSet)
+                                                    {
+                                                        Tools.AddBlockRowMap(blockRowMap, i, propArea);
+                                                        isFound = true;
+                                                    }
+                                                    continue;
                                                 }
                                             }
                                         }
@@ -392,15 +409,17 @@ namespace ResumeParser
                                             }
                                             if (dictValue != null)
                                             {
-                                                Tools.AddNewValue(cat, catProp.Name, jsonData, dictValue);
-                                                Tools.AddBlockRowMap(blockRowMap, i, propArea);
-                                                isFound = true;
+                                                if (Tools.AddNewValue(cat, catProp.Name, jsonData, dictValue, blockRowMap, i, catRangeBegin, catRangeEnd))
+                                                {
+                                                    Tools.AddBlockRowMap(blockRowMap, i, propArea);
+                                                    isFound = true;
+                                                }
                                             }
                                         }
                                         if (!isFound)
                                         {
                                             /* ML search */
-                                            TextArea textArea = new TextArea { Title = cat, Description = block };
+                                            TextArea textArea = new() { Title = cat, Description = block };
                                             AreaPrediction prediction = engine.SinglePredict(textArea);
                                             string[] areaParts = prediction.PredictedArea.Split('.');
                                             if (areaParts.Length == 2)
@@ -409,20 +428,30 @@ namespace ResumeParser
                                                 if (prediction.PredictedArea == predictCat)
                                                 {
                                                     string predictProp = areaParts[1];
-                                                    Tools.AddNewValue(cat, predictProp, jsonData, block);
-                                                    Tools.AddBlockRowMap(blockRowMap, i, propArea);
-                                                    isFound = true;
+                                                    if (Tools.AddNewValue(cat, predictProp, jsonData, block, blockRowMap, i, catRangeBegin, catRangeEnd))
+                                                    {
+                                                        Tools.AddBlockRowMap(blockRowMap, i, propArea);
+                                                        isFound = true;
+                                                    }
                                                 }
                                             }
                                         }
-                                        if (!isFound && catProp.Name == "Description" && !blockRowMap.ContainsKey(i)) 
+                                        if (!isFound && catProp.Name == "Description" && !blockRowMap.ContainsKey(i))
                                         {
-                                            Tools.AddNewValue(cat, catProp.Name, jsonData, block);
+                                            Tools.AddNewValue(cat, catProp.Name, jsonData, block, blockRowMap, i, catRangeBegin, catRangeEnd);
                                         }
                                     }
-                                    if (rangeValue.Count > 0) 
+                                    if (propRangeDict.Count > 0)
                                     {
-                                        Tools.AddNewValue(cat, catProp.Name, jsonData, string.Join(", ", rangeValue));
+                                        for (int j = 0; j < catProps.Length; j++)
+                                        {
+                                            PropertyInfo catProp = catProps[j];
+                                            string propArea = $"{cat}.{catProp.Name}";
+                                            if (propRangeDict.TryGetValue(propArea, out List<string> propRangeList)) 
+                                            {
+                                                Tools.AddNewValue(cat, catProp.Name, jsonData, string.Join(", ", propRangeList), blockRowMap, i, catRangeBegin, catRangeEnd);
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -475,9 +504,9 @@ namespace ResumeParser
                 return null;
             }
 
-            Config result = new Config();
-            List<string> keys = new List<string>();
-            List<string> values = new List<string>();
+            Config result = new();
+            List<string> keys = new();
+            List<string> values = new();
             keys.Add(args[0]);
             values.Add(args[1]);
             keys.Add(args[2]);

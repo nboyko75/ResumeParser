@@ -12,7 +12,7 @@ namespace ResumeParser.Parser
     {
         public static string ResultGroup = "result";
         public static string ResultGroupPattern = @"?<result>";
-        public static string DatePattern = @"(\d+)[-.\/](\d+)[-.\/](\d+)";
+        public static string DatePattern = @"((\d+)[-.\/](\d+)[-.\/](\d+))|((January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})";
         public static string PhoneNumberPattern = @"(\+?(?<NatCode>1)\s*[-\/\.]?)?(\((?<AreaCode>\d{3})\)|(?<AreaCode>\d{3}))\s*[-\/\.]?\s*(?<Number1>\d{3})\s*[-\/\.]?\s*(?<Number2>\d{4})\s*(([xX]|[eE][xX][tT])\.?\s*(?<Ext>\d+))*";
         public static string AddressPattern = @"\b(\d{1,6} )?(.{2,25}\b(avenue|ave|court|ct|street|st|drive|dr|lane|ln|road|rd|blvd|plaza|parkway|pkwy|way)[.,])?(.{0,25} +\b\d{5}\b)";
         public static string EmailPattern = @"([\w\.\-]+)@([\w\-]+)((\.(\w){2,3})+)";
@@ -67,26 +67,68 @@ namespace ResumeParser.Parser
 
     public class Tools
     {
-        public static void SetPropValue(Type objType, string propName, object obj, string newVal)
+        public static bool SetPropValue(Type objType, string propName, object obj, string newVal, Dictionary<int, List<string>> blockRowMap,
+            int rowIdx, int rangeBeg, int rangeEnd)
         {
-            PropertyInfo attrProp = objType.GetProperty(propName);
-            string oldVal = (string)attrProp.GetValue(obj);
+            PropertyInfo propInfo = objType.GetProperty(propName);
+            string cat = objType.Name;
+            string oldVal = (string)propInfo.GetValue(obj);
             bool toSetValue = true;
-            if (oldVal != null)
+            if (JsonDataInfo.notFillAfterList.Contains(cat)) 
+            {
+                for (int i = rowIdx; i >= rangeBeg; i--) 
+                {
+                    if (blockRowMap.TryGetValue(i, out List<string> rowCats))
+                    {
+                        if (rowCats.Any(s => !s.StartsWith(cat)))
+                        {
+                            toSetValue = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (JsonDataInfo.FillAfterMap.TryGetValue(propName, out string fillAfterPropName))
+            {
+                PropertyInfo fillAfterProp = objType.GetProperty(fillAfterPropName);
+                string fillAfterPropValue = (string)fillAfterProp.GetValue(obj);
+                if (string.IsNullOrEmpty(fillAfterPropValue))
+                {
+                    toSetValue = false;
+                }
+            }
+            else if (JsonDataInfo.FillBeforeMap.TryGetValue(propName, out string fillBeforePropName))
+            {
+                PropertyInfo fillBeforeProp = objType.GetProperty(fillBeforePropName);
+                string fillBeforePropValue = (string)fillBeforeProp.GetValue(obj);
+                if (string.IsNullOrEmpty(fillBeforePropValue))
+                {
+                    string propArea = $"{cat}.{propName}";
+                    if (blockRowMap.TryGetValue(rowIdx, out List<string> rowCats))
+                    {
+                        if (rowCats.Any(s => !s.StartsWith(cat)))
+                        {
+                            toSetValue = false;
+                        }
+                    }
+                }
+            }
+            else if (oldVal != null)
             {
                 if (JsonDataInfo.MultipleValueProps.Contains(propName))
                 {
-                    oldVal = oldVal + ", ";
+                    oldVal += ", ";
                 }
-                else 
+                else
                 {
                     toSetValue = false;
                 }
             }
             if (toSetValue)
             {
-                attrProp.SetValue(obj, string.Concat(oldVal, newVal));
+                propInfo.SetValue(obj, string.Concat(oldVal, newVal));
             }
+            return toSetValue;
         }
 
         public static bool CheckDir(string dir, bool toCreate)
@@ -174,18 +216,47 @@ namespace ResumeParser.Parser
             {
                 lastItem = lst[idx];
                 bool toAdd = false;
-                if (!isIndex)
+                if (!isIndex && adeddProps.Length > 0)
                 {
-                    for (int i = 0; i < adeddProps.Length; i++)
+                    PropertyInfo firstProp = adeddProps[0];
+                    if (firstProp.Name != JsonDataInfo.LastPropName)
                     {
-                        PropertyInfo propType = adeddProps[i];
-                        if (!JsonDataInfo.MultipleValueProps.Contains(propType.Name))
+                        PropertyInfo descProp = typeof(T).GetProperty(JsonDataInfo.LastPropName);
+                        if (descProp != null)
                         {
-                            string oldValue = (string)propType.GetValue(lastItem);
-                            if (oldValue != null)
+                            string descVal = (string)descProp.GetValue(lastItem);
+                            if (!string.IsNullOrEmpty(descVal))
                             {
                                 toAdd = true;
-                                break;
+                            }
+                        }
+                    }
+                    if (!toAdd)
+                    {
+                        for (int i = 0; i < adeddProps.Length; i++)
+                        {
+                            PropertyInfo propType = adeddProps[i];
+                            if (!JsonDataInfo.MultipleValueProps.Contains(propType.Name))
+                            {
+                                bool check4Add = true;
+                                if (JsonDataInfo.FillAfterMap.TryGetValue(propType.Name, out string fillAfterPropName))
+                                {
+                                    PropertyInfo fillAfterProp = typeof(T).GetProperty(fillAfterPropName);
+                                    string fillAfterPropValue = (string)fillAfterProp.GetValue(lastItem);
+                                    if (string.IsNullOrEmpty(fillAfterPropValue))
+                                    {
+                                        check4Add = false;
+                                    }
+                                }
+                                if (check4Add)
+                                {
+                                    string oldValue = (string)propType.GetValue(lastItem);
+                                    if (!string.IsNullOrEmpty(oldValue))
+                                    {
+                                        toAdd = true;
+                                        break;
+                                    }
+                                }
                             }
                         }
                     }
@@ -201,26 +272,27 @@ namespace ResumeParser.Parser
         }
 
         public static bool AddNewValueByType<T>(List<T> lst, PropertyInfo adeddProp, string cat, string addedPropName, JsonData jsonData,
-            string block, int index) where T : new()
+            string block, Dictionary<int, List<string>> blockRowMap, int rowIdx, int rangeBeg, int rangeEnd, int index) where T : new()
         {
-            bool isNew = false;
+            bool result = false;
             if (JsonDataInfo.SimpleClasses.Contains(cat))
             {
                 if (cat == "Contact")
                 {
-                    SetPropValue(typeof(Contact), addedPropName, jsonData.contact, block);
+                    result = SetPropValue(typeof(Contact), addedPropName, jsonData.contact, block, blockRowMap, rowIdx, rangeBeg, rangeEnd);
                 }
             }
             else if (JsonDataInfo.ListClasses.Contains(cat))
             {
                 PropertyInfo[] adeddProps = { typeof(T).GetProperty(addedPropName) };
-                T lastItem = Tools.GetItem<T>(lst, adeddProps, index, out isNew);
-                SetPropValue(typeof(T), addedPropName, lastItem, block);
+                T lastItem = Tools.GetItem<T>(lst, adeddProps, index, out bool isNew);
+                result = SetPropValue(typeof(T), addedPropName, lastItem, block, blockRowMap, rowIdx, rangeBeg, rangeEnd);
             }
-            return isNew;
+            return result;
         }
 
-        public static bool AddNewValue(string cat, string addedPropName, JsonData jsonData, string block, int index = -1)
+        public static bool AddNewValue(string cat, string addedPropName, JsonData jsonData, string block, Dictionary<int, List<string>> blockRowMap,
+            int rowIdx, int rangeBeg, int rangeEnd, int index = -1)
         {
             bool result = false;
             switch (cat)
@@ -228,37 +300,37 @@ namespace ResumeParser.Parser
                 case "Contact":
                     {
                         PropertyInfo adeddProp = typeof(Contact).GetProperty(addedPropName);
-                        result = AddNewValueByType<Contact>(null, adeddProp, cat, addedPropName, jsonData, block, index);
+                        result = AddNewValueByType<Contact>(null, adeddProp, cat, addedPropName, jsonData, block, blockRowMap, rowIdx, rangeBeg, rangeEnd, index);
                         break;
                     }
                 case "Education":
                     {
                         PropertyInfo adeddProp = typeof(Education).GetProperty(addedPropName);
-                        result = AddNewValueByType<Education>(jsonData.education, adeddProp, cat, addedPropName, jsonData, block, index);
+                        result = AddNewValueByType<Education>(jsonData.education, adeddProp, cat, addedPropName, jsonData, block, blockRowMap, rowIdx, rangeBeg, rangeEnd, index);
                         break;
                     }
                 case "Job":
                     {
                         PropertyInfo adeddProp = typeof(Job).GetProperty(addedPropName);
-                        result = AddNewValueByType<Job>(jsonData.jobs, adeddProp, cat, addedPropName, jsonData, block, index);
+                        result = AddNewValueByType<Job>(jsonData.jobs, adeddProp, cat, addedPropName, jsonData, block, blockRowMap, rowIdx, rangeBeg, rangeEnd, index);
                         break;
                     }
                 case "Skill":
                     {
                         PropertyInfo adeddProp = typeof(Skill).GetProperty(addedPropName);
-                        result = AddNewValueByType<Skill>(jsonData.skills, adeddProp, cat, addedPropName, jsonData, block, index);
+                        result = AddNewValueByType<Skill>(jsonData.skills, adeddProp, cat, addedPropName, jsonData, block, blockRowMap, rowIdx, rangeBeg, rangeEnd, index);
                         break;
                     }
                 case "Project":
                     {
                         PropertyInfo adeddProp = typeof(Project).GetProperty(addedPropName);
-                        result = AddNewValueByType<Project>(jsonData.projects, adeddProp, cat, addedPropName, jsonData, block, index);
+                        result = AddNewValueByType<Project>(jsonData.projects, adeddProp, cat, addedPropName, jsonData, block, blockRowMap, rowIdx, rangeBeg, rangeEnd, index);
                         break;
                     }
                 case "Award":
                     {
                         PropertyInfo adeddProp = typeof(Award).GetProperty(addedPropName);
-                        result = AddNewValueByType<Award>(jsonData.awards, adeddProp, cat, addedPropName, jsonData, block, index);
+                        result = AddNewValueByType<Award>(jsonData.awards, adeddProp, cat, addedPropName, jsonData, block, blockRowMap, rowIdx, rangeBeg, rangeEnd, index);
                         break;
                     }
             }

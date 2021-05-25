@@ -8,9 +8,21 @@ namespace ResumeParser.Classes
         public static string[] ListClasses = { "Education", "Job", "Skill", "Project", "Award" };
         public static string[] MultipleValueProps = { "Description", "Biography", "Address", "Language", "Location", "Tools", "AwardedBy" };
         public static string[] DateProps = { "BirthDate", "StartDate", "EndDate" };
+        public static string LastPropName = "Description";
         public static Dictionary<string, string> DictMap = new()
         {
             { "Education.Institution_Location", "Contact.City" }
+        };
+        public static Dictionary<string, string> FillBeforeMap = new()
+        {
+            { "Degree", "Institution" }
+        };
+        public static Dictionary<string, string> FillAfterMap = new()
+        {
+            { "Institution_Location", "Institution" }
+        };
+        public static List<string> notFillAfterList = new()
+        {
         };
     }
 
@@ -64,9 +76,9 @@ namespace ResumeParser.Classes
     {
         public string Company { get; set; }
         public string Location { get; set; }
+        public string Title { get; set; }
         public string StartDate { get; set; }
         public string EndDate { get; set; }
-        public string Title { get; set; }
         public string Description { get; set; }
     }
 
